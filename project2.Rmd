@@ -1,0 +1,120 @@
+---
+title: "Pratical Machine Learning Techniques for Classes classification"
+output: html_document
+---
+
+```{r,echo=FALSE ,cache=TRUE}
+setwd("/Users/damienbenveniste/CourseOnline/Coursera/JHU data specialization/Machine learning/");
+```
+
+
+##Introduction
+
+The purpose of this study is to design a machine learning model that could differentiate between good and bad forms of Biceps Curl exercises based on-body sensing approach parameters. The different classes follow the following format:
+
+* Class A: exactly according to the specification
+* Class B: throwing the elbows to the front
+* Class C: lifting the dumbbell only halfway
+* Class D: lowering the dumbbell only halfway
+* Class E: throwing the hips to the front.
+
+The input variables are a set of different accelerometer and gyrometer values recorded all over the body of the six participants.
+
+```{r, cache=TRUE}
+training <- read.csv("pml-training.csv")
+testing  <- read.csv("pml-testing.csv")
+```
+
+##How to build the model
+
+###The algorithm
+
+We are going to evaluate the accuracy on such a dataset of the Random Forrest algorithm. We choose this algorithm for few reasons:
+
+* It is fast
+* It is accurate for well-distributed data 
+* It does not overfit 
+* There is no need for cross validation.
+
+In random forests, there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. Each tree is constructed using a different bootstrap sample from the original data. About one-third of the cases are left out of the bootstrap sample and not used in the construction of the kth tree.
+
+Random forest would not accurately classify the data if one or some of the classes were to be represented by a disproportionate number of samples (even with a small out-of-bag error estimate of the computed model). We check that the data is not imbalanced: 
+
+```{r, cache=TRUE}
+summary(training$classe)
+```
+
+###Cleaning the data
+
+Every learning algorithms speed will depend on the number of features that the algorithms are trying to learning from. In the case of the random forest algorithm the complexity is $O(TkM log(M))$, where $T$ is the number of trees grown, $k$ is number of variables randomly sampled as candidates at each split and $M$ is the number of features. As a consequence it is important to reduce the number features to the essential ones. The testing set has many features that do not have values for any of the sample and therefore those feature will not provide additional information to the model. We subset the data with the features that have at least one value:
+
+```{r, cache=TRUE}
+myvars      <- colnames(testing)[colSums(is.na(testing)) == nrow(testing)]
+newtraining <- training[!colnames(testing) %in% myvars]
+newtesting  <- testing[!colnames(testing) %in% myvars]
+```
+
+Additionally the feature `r "cvtd_timestamp"` gives the same information than `r "raw_timestamp_part_1"` and `r "raw_timestamp_part_2"` and is therefore unnecessary. Similarly the features `r "X"` and `r "problem_id"` do not provide a relevant information as they are only sample indices. We factor out those features
+
+```{r, cache=TRUE}
+var <- c("classe","cvtd_timestamp","X")
+newtrainingSub <- droplevels(newtraining[!colnames(newtraining) %in% var])
+newtrainingSub$user_name <- as.factor(newtrainingSub$user_name)
+newtrainingSub$new_window <- as.factor(newtrainingSub$new_window)
+
+
+var <- c("problem_id","cvtd_timestamp","X")
+newtestingSub <- droplevels(newtesting[!colnames(newtesting) %in% var])
+newtestingSub$user_name <- as.factor(newtestingSub$user_name)
+newtestingSub$new_window <- as.factor(newtestingSub$new_window)
+```
+
+Note that we also did not include the `r "classe"` variable as a feature and we specified `r "user_name"` and `r "new_window"` as categorical variables. We insure also that `r "new_window"` as the same number of levels in the training set and the testing set
+
+```{r, cache=TRUE}
+levels(newtestingSub$new_window) <- c("yes","no")
+```
+
+##Training the model
+
+We train the model and output the out-of-bag error estimate for every 100 tree grown. 
+
+```{r, cache=TRUE}
+library(randomForest)
+modFit <- randomForest(newtrainingSub,newtraining$classe,do.trace=100)
+pred   <- predict(modFit,newtestingSub)
+```
+```{r, cache=TRUE}
+modFit
+```
+The algorithm selected 500 trees grown and is predicting the result with a $0.06%$ out-of-bag error estimate.
+
+
+```{r, cache=TRUE}
+pred
+```
+
+##Conclusion 
+
+All the testing samples were predicted correctly. The process to build the model insured that we do not overfit, we produce an unbiased measure of the error and that the accuracy of the model is very satisfying. We conclude that the random forest algorithm is a very good learning algorithm for this specific dataset.   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
